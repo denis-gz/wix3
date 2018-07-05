@@ -7,7 +7,7 @@
         <MajorBuildNumber>3</MajorBuildNumber>
         <MinorBuildNumber>10</MinorBuildNumber>
         <StartBuildYear>2014</StartBuildYear>
-        <BuildRevision>4</BuildRevision>
+        <BuildRevision>18070</BuildRevision>
 
         <MajorMinorVersionString>$(MajorBuildNumber)$(MinorBuildNumber)</MajorMinorVersionString>
         <MajorMinorVersionDottedString>$(MajorBuildNumber).$(MinorBuildNumber)</MajorMinorVersionDottedString>
@@ -26,8 +26,8 @@
         <UpperBuildNumber>$([MSBuild]::Add($(BuildYearInMonths), $(BuildMonth)))</UpperBuildNumber>
         <BuildNumber>$(UpperBuildNumber)$(BuildDay)</BuildNumber>
 
-        <FullBuildVersionString>$(MajorBuildNumber).$(MinorBuildNumber).$(BuildRevision).$(BuildNumber)</FullBuildVersionString>
-        <FullBuildVersionStringDashed>$(MajorBuildNumber)-$(MinorBuildNumber)-$(BuildRevision)-$(BuildNumber)</FullBuildVersionStringDashed>
+        <FullBuildVersionString>$(MajorBuildNumber).$(MinorBuildNumber).$(BuildNumber).$(BuildRevision)</FullBuildVersionString>
+        <FullBuildVersionStringDashed>$(MajorBuildNumber)-$(MinorBuildNumber)-$(BuildNumber)-$(BuildRevision)</FullBuildVersionStringDashed>
         <MsiProductVersionString>$(MajorBuildNumber).$(MinorBuildNumber).$(BuildNumber)</MsiProductVersionString>
     </PropertyGroup>
 
@@ -75,7 +75,7 @@
 #define rmj	$(MajorBuildNumber)
 #define rmm	$(MinorBuildNumber)
 #define rup	$(BuildNumber)
-#define szVerName	&quot;Official Release&quot;
+#define szVerName	&quot;COMODO Internal Release&quot;
 
 #endif
 "/>
