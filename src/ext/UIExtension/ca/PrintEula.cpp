@@ -72,8 +72,8 @@ extern "C" UINT __stdcall PrintEula(MSIHANDLE hInstall)
         ExitOnFailure(hr, "failed to read Eula text from MSI database");
 
         // Have to load Rich Edit since we'll be creating a Rich Edit control in the window
-        hr = LoadSystemLibrary(L"Riched20.dll", &hRichEdit);
-        ExitOnFailure(hr, "failed to load rich edit 2.0 library");
+        hr = LoadSystemLibrary(L"MSFTEDIT.DLL", &hRichEdit);
+        ExitOnFailure(hr, "failed to load rich edit library");
 
         hr = CreateRichTextWindow(&hWndMain, &fRegisteredClass);
         ExitOnFailure(hr, "failed to create rich text window for printing");
@@ -242,7 +242,7 @@ LRESULT CALLBACK WndProc(
     switch (message)
     {
     case WM_CREATE:
-        hWndRichEdit = ::CreateWindowExW(WS_EX_CLIENTEDGE, RICHEDIT_CLASSW, L"", ES_MULTILINE | WS_CHILD | WS_VISIBLE | WS_VSCROLL, CONTROL_X_COORDINATE, CONTROL_Y_COORDINATE, CONTROL_WIDTH, CONTROL_HEIGHT, hWnd, NULL, NULL, NULL);
+        hWndRichEdit = ::CreateWindowExW(WS_EX_CLIENTEDGE, MSFTEDIT_CLASS, L"", ES_MULTILINE | WS_CHILD | WS_VISIBLE | WS_VSCROLL, CONTROL_X_COORDINATE, CONTROL_Y_COORDINATE, CONTROL_WIDTH, CONTROL_HEIGHT, hWnd, NULL, NULL, NULL);
         break;
     case WM_COMMAND:
         wmId = LOWORD(wParam);

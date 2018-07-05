@@ -498,10 +498,10 @@ DAPI_(HRESULT) ThemeLoadControls(
         case THEME_CONTROL_TYPE_RICHEDIT:
             if (!vhModuleRichEd)
             {
-                hr = LoadSystemLibrary(L"Riched20.dll", &vhModuleRichEd);
+                hr = LoadSystemLibrary(L"MSFTEDIT.DLL", &vhModuleRichEd);
                 ExitOnFailure(hr, "Failed to load Rich Edit control library.");
             }
-            wzWindowClass = RICHEDIT_CLASSW;
+            wzWindowClass = MSFTEDIT_CLASS;
             dwWindowBits |= ES_AUTOVSCROLL | ES_MULTILINE | WS_VSCROLL | ES_READONLY;
             break;
 
