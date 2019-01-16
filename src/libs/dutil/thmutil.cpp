@@ -48,10 +48,6 @@ static HRESULT ParseTheme(
     __in IXMLDOMDocument* pixd,
     __out THEME** ppTheme
     );
-static HRESULT LocalizeTheme(
-    __in THEME *pTheme,
-    __in const WIX_LOCALIZATION *pWixLoc
-    );
 static HRESULT ParseImage(
     __in_opt HMODULE hModule,
     __in_opt LPCWSTR wzRelativePath,
@@ -108,6 +104,10 @@ static HRESULT ParseColumns(
 static HRESULT ParseTabs(
     __in IXMLDOMNode* pixn,
     __in THEME_CONTROL* pControl
+    );
+static HRESULT ParseItems(
+	__in IXMLDOMNode* pixn,
+	__in THEME_CONTROL* pControl
     );
 static HRESULT FindImageList(
     __in THEME* pTheme,
@@ -323,7 +323,8 @@ DAPI_(HRESULT) ThemeLoadFromResource(
     ExitOnFailure(hr, "Failed to read theme from resource.");
 
     // Ensure returned resource buffer is null-terminated.
-    reinterpret_cast<BYTE *>(pvResource)[cbResource - 1] = '\0';
+    // DZ: This causes write-fault, not needed anyway.
+    //reinterpret_cast<BYTE *>(pvResource)[cbResource - 1] = '\0';
 
     hr = StrAllocStringAnsi(&sczXml, reinterpret_cast<LPCSTR>(pvResource), cbResource, CP_UTF8);
     ExitOnFailure(hr, "Failed to convert XML document data from UTF-8 to unicode string.");
@@ -368,8 +369,13 @@ DAPI_(void) ThemeFree(
             FreeControl(pTheme->rgControls + i);
         }
 
+        memset(pTheme->rgControls, 0, sizeof(pTheme->rgControls));
         ReleaseMem(pTheme->rgControls);
+
+        memset(pTheme->rgPages, 0, sizeof(pTheme->rgPages));
         ReleaseMem(pTheme->rgPages);
+
+        memset(pTheme->rgFonts, 0, sizeof(pTheme->rgFonts));
         ReleaseMem(pTheme->rgFonts);
 
         if (pTheme->hImage)
@@ -378,6 +384,8 @@ DAPI_(void) ThemeFree(
         }
 
         ReleaseStr(pTheme->sczCaption);
+
+        memset(pTheme, 0, sizeof(THEME));
         ReleaseMem(pTheme);
     }
 }
@@ -622,6 +630,14 @@ DAPI_(HRESULT) ThemeLoadControls(
                 }
             }
         }
+		else if (THEME_CONTROL_TYPE_COMBOBOX == pControl->type)
+		{
+			for (DWORD j = 0; j < pControl->cItems; ++j)
+			{
+				::SendMessageW(pControl->hWnd, CB_ADDSTRING, 0, (LPARAM) pControl->ptiItems[j].pszText);
+				::SendMessageW(pControl->hWnd, CB_SETITEMDATA, j, pControl->ptiItems[j].uTag);
+			}
+		}
 
         if (pControlFont)
         {
@@ -1654,7 +1670,12 @@ static HRESULT ParseTheme(
     __out THEME** ppTheme
     )
 {
-    static WORD wThemeId = 0;
+    // Make first themeId high enough so its controls acquire ids starting from 0x1000.
+    // Otherwise when a theme is reloaded several times repeatedly, its control ids at
+    // 4th iteration begin clashing with WIXSTDBA_CONTROL_* ids (starting from 0x400)
+    // and wrong items get returned by GetDlgItem(). This makes very strange things to
+    // happen.
+    static WORD wThemeId = 0x10;
 
     HRESULT hr = S_OK;
     THEME* pTheme = NULL;
@@ -2862,6 +2883,11 @@ static HRESULT ParseControl(
         hr = ParseTabs(pixn, pControl);
         ExitOnFailure(hr, "Failed to parse tabs");
     }
+	else if (THEME_CONTROL_TYPE_COMBOBOX == type)
+	{
+		hr = ParseItems(pixn, pControl);
+		ExitOnFailure(hr, "Failed to parse combobox items");
+	}
 
 LExit:
     ReleaseBSTR(bstrText);
@@ -3042,6 +3068,62 @@ LExit:
     ReleaseBSTR(bstrText);
 
     return hr;
+}
+
+
+static HRESULT ParseItems(
+	__in IXMLDOMNode* pixn,
+	__in THEME_CONTROL* pControl
+)
+{
+	HRESULT hr = S_OK;
+	size_t cbAllocSize = 0;
+	DWORD i = 0;
+	IXMLDOMNodeList* pixnl = NULL;
+	IXMLDOMNode* pixnChild = NULL;
+	BSTR bstrText = NULL;
+
+	hr = XmlSelectNodes(pixn, L"Item|li", &pixnl);
+	ExitOnFailure(hr, "Failed to select child item nodes.");
+
+	hr = pixnl->get_length(reinterpret_cast<long*>(&pControl->cItems));
+	ExitOnFailure(hr, "Failed to count the number of items.");
+
+	if (0 < pControl->cItems)
+	{
+		hr = ::SizeTMult(sizeof(THEME_ITEM), pControl->cItems, &cbAllocSize);
+		ExitOnFailure(hr, "Overflow while calculating allocation size for %u THEME_ITEM structs.", pControl->cItems);
+
+		pControl->ptiItems = static_cast<THEME_ITEM*>(MemAlloc(cbAllocSize, TRUE));
+		ExitOnNull(pControl->ptiItems, hr, E_OUTOFMEMORY, "Failed to allocate item structs.");
+
+		i = 0;
+		while (S_OK == (hr = XmlNextElement(pixnl, &pixnChild, NULL)))
+		{
+			hr = XmlGetText(pixnChild, &bstrText);
+			ExitOnFailure(hr, "Failed to get inner text of item element.");
+
+			hr = StrAllocString(&(pControl->ptiItems[i].pszText), bstrText, 0);
+			ExitOnFailure(hr, "Failed to copy item text.");
+
+			hr = XmlGetAttributeNumber(pixnChild, L"Tag", reinterpret_cast<DWORD*>(&pControl->ptiItems[i].uTag));
+			if (S_FALSE == hr)
+			{
+				pControl->ptiItems[i].uTag = 0;
+			}
+			ExitOnFailure(hr, "Failed to get item tag attribute.");
+
+			++i;
+			ReleaseNullBSTR(bstrText);
+		}
+	}
+
+LExit:
+	ReleaseObject(pixnl);
+	ReleaseObject(pixnChild);
+	ReleaseBSTR(bstrText);
+
+	return hr;
 }
 
 

@@ -48,6 +48,7 @@ enum WM_WIXSTDBA
     WM_WIXSTDBA_SHOW_STATE_MODAL,
     WM_WIXSTDBA_CLOSE_STATE_MODAL,
     WM_WIXSTDBA_SHOW_FAILURE,
+    WM_WIXSTDBA_CHANGE_LANGUAGE,
 };
 
 // This enum must be kept in the same order as the vrgwzPageNames array.
@@ -97,6 +98,7 @@ enum WIXSTDBA_CONTROL
     WIXSTDBA_CONTROL_EULA_ACCEPT_CHECKBOX,
     WIXSTDBA_CONTROL_WELCOME_CANCEL_BUTTON,
     WIXSTDBA_CONTROL_VERSION_LABEL,
+	WIXSTDBA_CONTROL_LANGUAGES_COMBOBOX,
 
     // Options page
     WIXSTDBA_CONTROL_FOLDER_EDITBOX,
@@ -170,6 +172,7 @@ static THEME_ASSIGN_CONTROL_ID vrgInitControls[] = {
     { WIXSTDBA_CONTROL_EULA_ACCEPT_CHECKBOX, L"EulaAcceptCheckbox" },
     { WIXSTDBA_CONTROL_WELCOME_CANCEL_BUTTON, L"WelcomeCancelButton" },
     { WIXSTDBA_CONTROL_VERSION_LABEL, L"InstallVersion" },
+	{ WIXSTDBA_CONTROL_LANGUAGES_COMBOBOX, L"LanguagesCombobox" },
 
     { WIXSTDBA_CONTROL_FOLDER_EDITBOX, L"FolderEditbox" },
     { WIXSTDBA_CONTROL_BROWSE_BUTTON, L"BrowseButton" },
@@ -1123,7 +1126,6 @@ private: // privates
     HRESULT InitializeData()
     {
         HRESULT hr = S_OK;
-        LPWSTR sczModulePath = NULL;
         IXMLDOMDocument *pixdManifest = NULL;
 
         hr = BalManifestLoad(m_hModule, &pixdManifest);
@@ -1138,13 +1140,13 @@ private: // privates
         hr = ProcessCommandLine(&m_sczLanguage);
         ExitOnFailure(hr, "Unknown commandline parameters.");
 
-        hr = PathRelativeToModule(&sczModulePath, NULL, m_hModule);
+        hr = PathRelativeToModule(&m_sczModulePath, NULL, m_hModule);
         BalExitOnFailure(hr, "Failed to get module path.");
 
-        hr = LoadLocalization(sczModulePath, m_sczLanguage);
+        hr = LoadLocalization(m_sczModulePath, m_sczLanguage);
         ExitOnFailure(hr, "Failed to load localization.");
 
-        hr = LoadTheme(sczModulePath, m_sczLanguage);
+        hr = LoadTheme(m_sczModulePath, m_sczLanguage);
         ExitOnFailure(hr, "Failed to load theme.");
 
         hr = BalInfoParseFromXml(&m_Bundle, pixdManifest);
@@ -1172,7 +1174,6 @@ private: // privates
 
     LExit:
         ReleaseObject(pixdManifest);
-        ReleaseStr(sczModulePath);
 
         return hr;
     }
@@ -1275,6 +1276,7 @@ private: // privates
         hr = FindLocFile(wzModulePath, wzLocFileName, wzLanguage, &sczLocPath);
         BalExitOnFailure2(hr, "Failed to probe for loc file: %ls in path: %ls", wzLocFileName, wzModulePath);
 
+        ReleaseNullLoc(m_pWixLoc);
         hr = LocLoadFromFile(sczLocPath, &m_pWixLoc);
         BalExitOnFailure1(hr, "Failed to load loc file from path: %ls", sczLocPath);
 
@@ -1288,6 +1290,7 @@ private: // privates
         }
 
         // Load ConfirmCancelMessage.
+        ReleaseNullStr(m_sczConfirmCloseMessage);
         hr = StrAllocString(&m_sczConfirmCloseMessage, L"#(loc.ConfirmCancelMessage)", 0);
         ExitOnFailure(hr, "Failed to initialize confirm message loc identifier.");
 
@@ -1355,6 +1358,7 @@ private: // privates
         hr = FindLocFile(wzModulePath, wzThemeFileName, wzLanguage, &sczThemePath);
         BalExitOnFailure2(hr, "Failed to probe for theme file: %ls in path: %ls", wzThemeFileName, wzModulePath);
 
+        ReleaseTheme(m_pTheme);
         hr = ThemeLoadFromFile(sczThemePath, &m_pTheme);
         BalExitOnFailure1(hr, "Failed to load theme from path: %ls", sczThemePath);
 
@@ -1699,6 +1703,17 @@ private: // privates
         }
         BalExitOnFailure(hr, "Failed to get ShowVersion value.");
 
+        hr = XmlGetAttributeNumber(pNode, L"ShowLanguages", &dwBool);
+        if (S_FALSE == hr)
+        {
+            hr = S_OK;
+        }
+        else if (SUCCEEDED(hr))
+        {
+            m_fShowLanguages = 0 < dwBool;
+        }
+        BalExitOnFailure(hr, "Failed to get ShowLanguages value.");
+
         hr = XmlGetAttributeNumber(pNode, L"SupportCacheOnly", &dwBool);
         if (S_FALSE == hr)
         {
@@ -1893,8 +1908,10 @@ private: // privates
     {
         if (::IsWindow(m_hWnd))
         {
-            ::DestroyWindow(m_hWnd);
+            HWND hwnd = m_hWnd;
             m_hWnd = NULL;
+            // WM_DESTROY is called synchronously here
+            ::DestroyWindow(hwnd);
             m_fTaskbarButtonOK = FALSE;
         }
 
@@ -1934,7 +1951,9 @@ private: // privates
             {
             LRESULT lres = ThemeDefWindowProc(pBA ? pBA->m_pTheme : NULL, hWnd, uMsg, wParam, lParam);
             ::SetWindowLongPtrW(hWnd, GWLP_USERDATA, 0);
-            ::PostQuitMessage(0);
+            // m_hWnd is NULL when window is re-created - do not quit in this case.
+            if (!pBA || pBA->m_hWnd)
+                ::PostQuitMessage(0);
             return lres;
             }
 
@@ -1983,6 +2002,10 @@ private: // privates
             pBA->OnShowFailure();
             return 0;
 
+        case WM_WIXSTDBA_CHANGE_LANGUAGE:
+            pBA->OnChangeLanguageSelection(static_cast<DWORD>(lParam));
+            return 0;
+
         case WM_COMMAND:
             switch (LOWORD(wParam))
             {
@@ -2020,6 +2043,15 @@ private: // privates
 
             case WIXSTDBA_CONTROL_LAUNCH_BUTTON:
                 pBA->OnClickLaunchButton();
+                return 0;
+
+            case WIXSTDBA_CONTROL_LANGUAGES_COMBOBOX:
+                if (HIWORD(wParam) == CBN_SELCHANGE)
+                {
+                    int index = ::SendMessageW((HWND) lParam, CB_GETCURSEL, 0, 0);
+                    UINT langId = ::SendMessageW((HWND) lParam, CB_GETITEMDATA, index, 0);
+                    ::PostMessageW(pBA->m_hWnd, WM_WIXSTDBA_CHANGE_LANGUAGE, 0, langId);
+                }
                 return 0;
 
             case WIXSTDBA_CONTROL_SUCCESS_RESTART_BUTTON: __fallthrough;
@@ -2111,6 +2143,25 @@ private: // privates
                 if (SUCCEEDED(hrFormat))
                 {
                     ThemeSetTextControl(m_pTheme, pControl->wId, sczText);
+                }
+            }
+
+            // Make item for current localization language selected in the languages combobox.
+            if (WIXSTDBA_CONTROL_LANGUAGES_COMBOBOX == pControl->wId)
+            {
+                int nIndex = (int) ::SendMessageW(pControl->hWnd, CB_GETCURSEL, 0, 0);
+                if (nIndex < 0 || pControl->ptiItems[nIndex].uTag != m_pWixLoc->dwLangId)
+                {
+                    nIndex = 0;
+                    for (DWORD j = 0; j < pControl->cItems; ++j)
+                    {
+                        if (pControl->ptiItems[j].uTag == m_pWixLoc->dwLangId)
+                        {
+                            nIndex = j;
+                            break;
+                        }
+                    }
+                    ::SendMessageW(pControl->hWnd, CB_SETCURSEL, (WPARAM) nIndex, 0);
                 }
             }
         }
@@ -2456,6 +2507,12 @@ private: // privates
                     {
                         ThemeShowControl(m_pTheme, WIXSTDBA_CONTROL_VERSION_LABEL, SW_HIDE);
                     }
+
+                    // Show/Hide the languages combobox if it exists.
+                    if (ThemeControlExists(m_pTheme, WIXSTDBA_CONTROL_LANGUAGES_COMBOBOX) && !m_fShowLanguages)
+                    {
+                        ThemeShowControl(m_pTheme, WIXSTDBA_CONTROL_LANGUAGES_COMBOBOX, SW_HIDE);
+                    }
                 }
                 else if (m_rgdwPageIds[WIXSTDBA_PAGE_MODIFY] == dwNewPageId)
                 {
@@ -2775,6 +2832,39 @@ private: // privates
     {
         BOOL fAcceptedLicense = ThemeIsControlChecked(m_pTheme, WIXSTDBA_CONTROL_EULA_ACCEPT_CHECKBOX);
         ThemeControlEnable(m_pTheme, WIXSTDBA_CONTROL_INSTALL_BUTTON, fAcceptedLicense);
+    }
+
+    //
+    // OnChangeLanguageSelection - language selection changed.
+    //
+    void OnChangeLanguageSelection(DWORD langId)
+    {
+        if (m_pWixLoc->dwLangId != langId)
+        {
+            HRESULT hr = S_OK;
+            DestroyMainWindow();
+
+            ReleaseNullStr(m_sczLanguage);
+            StrAllocFormatted(&m_sczLanguage, L"%u", langId);
+
+            hr = LoadLocalization(m_sczModulePath, m_sczLanguage);
+            BalExitOnFailure1(hr, "Failed to load localization %u", langId);
+
+            hr = LoadTheme(m_sczModulePath, m_sczLanguage);
+            BalExitOnFailure1(hr, "Failed to localize theme for language %ls", langId);
+
+            WIXSTDBA_STATE former_state = m_state;
+            m_state = WIXSTDBA_STATE_INITIALIZING;
+
+            // WM_CREATE handler will do the rest.
+            hr = CreateMainWindow();
+            BalExitOnFailure(hr, "Failed to create main window.");
+
+            SetState(former_state, hr);
+        }
+
+    LExit:
+        return;
     }
 
 
@@ -3512,6 +3602,7 @@ public:
         m_sczConfirmCloseMessage = NULL;
         m_sczFailedMessage = NULL;
 
+        m_sczModulePath = NULL;
         m_sczLanguage = NULL;
         m_pTheme = NULL;
         memset(m_rgdwPageIds, 0, sizeof(m_rgdwPageIds));
@@ -3533,6 +3624,7 @@ public:
         m_fSuppressDowngradeFailure = FALSE;
         m_fSuppressRepair = FALSE;
         m_fShowVersion = FALSE;
+        m_fShowLanguages = FALSE;
         m_fSupportCacheOnly = FALSE;
         m_fShowFilesInUse = FALSE;
 
@@ -3582,6 +3674,7 @@ public:
         BalInfoUninitialize(&m_Bundle);
         LocFree(m_pWixLoc);
 
+        ReleaseStr(m_sczModulePath);
         ReleaseStr(m_sczLanguage);
         ReleaseStr(m_sczLicenseFile);
         ReleaseStr(m_sczLicenseUrl);
@@ -3610,6 +3703,7 @@ private:
     LPWSTR m_sczFailedMessage;
     LPWSTR m_sczConfirmCloseMessage;
 
+    LPWSTR m_sczModulePath;
     LPWSTR m_sczLanguage;
     THEME* m_pTheme;
     DWORD m_rgdwPageIds[countof(vrgwzPageNames)];
@@ -3636,6 +3730,7 @@ private:
     BOOL m_fSuppressDowngradeFailure;
     BOOL m_fSuppressRepair;
     BOOL m_fShowVersion;
+    BOOL m_fShowLanguages;
     BOOL m_fSupportCacheOnly;
     BOOL m_fShowFilesInUse;
 

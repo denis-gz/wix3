@@ -294,6 +294,9 @@
             </xs:appinfo>
         </xs:annotation>
         <xs:complexType>
+            <xs:choice maxOccurs="unbounded">
+                <xs:element ref="Item" />
+            </xs:choice>
             <xs:attributeGroup ref="CommonControlAttributes" />
             <xs:attribute name="FontId" type="xs:nonNegativeInteger" use="required">
                 <xs:annotation>
@@ -622,6 +625,29 @@
                                 More than one column can be marked with yes - all expandable columns will share available extra space.
                                 This is especially useful if the Window/@AutoResize is yes.
                             </xs:documentation>
+                        </xs:annotation>
+                    </xs:attribute>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="Item">
+        <xs:annotation>
+            <xs:documentation>An item in a combobox list.</xs:documentation>
+            <xs:appinfo>
+                <xse:parent namespace="http://wixtoolset.org/schemas/thmutil/2010" ref="Combobox" />
+            </xs:appinfo>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>Text for the item.</xs:documentation>
+                    </xs:annotation>
+                    <xs:attribute name="Tag" type="xs:unsignedInt">
+                        <xs:annotation>
+                            <xs:documentation>A numeric tag associated with the item.</xs:documentation>
                         </xs:annotation>
                     </xs:attribute>
                 </xs:extension>
