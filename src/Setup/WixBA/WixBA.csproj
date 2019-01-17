@@ -46,6 +46,7 @@
     <Resource Include="Resources\legal.png" />
     <Resource Include="Resources\news.png" />
     <Resource Include="Resources\wrench.png" />
+    <Resource Include="Resources\itarian_logo.png" />
   </ItemGroup>
 
   <ItemGroup>

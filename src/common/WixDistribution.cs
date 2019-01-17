@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Resources;
 
-[assembly: AssemblyCompany("COMODO")]
+[assembly: AssemblyCompany("ITarian LLC")]
 [assembly: AssemblyCopyright("Copyright (c) .NET Foundation and contributors. All rights reserved.")]
 [assembly: AssemblyProduct("Windows Installer XML Toolset")]
 

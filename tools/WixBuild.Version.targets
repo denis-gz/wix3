@@ -75,7 +75,7 @@
 #define rmj	$(MajorBuildNumber)
 #define rmm	$(MinorBuildNumber)
 #define rup	$(BuildNumber)
-#define szVerName	&quot;COMODO Internal Release&quot;
+#define szVerName	&quot;ITarian Internal Release&quot;
 
 #endif
 "/>

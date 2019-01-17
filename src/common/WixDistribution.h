@@ -5,7 +5,7 @@
 #ifndef __WIXDISTRIBUTION_FILE_H_
 #define __WIXDISTRIBUTION_FILE_H_
 
-#define VER_COMPANY_NAME    "COMODO"
+#define VER_COMPANY_NAME    "ITarian LLC"
 #define VER_LEGAL_COPYRIGHT "Copyright (c) .NET Foundation and contributors.\240 All rights reserved."
 #define VER_PRODUCT_NAME    "Windows Installer XML Toolset"
 
