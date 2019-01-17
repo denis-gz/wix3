@@ -57,6 +57,14 @@ struct THEME_TAB
     UINT uStringId;
 };
 
+
+struct THEME_ITEM
+{
+	LPWSTR pszText;
+	UINT uTag;
+};
+
+
 // THEME_ASSIGN_CONTROL_ID - Used to apply a specific id to a named control (usually
 //                           to set the WM_COMMAND).
 struct THEME_ASSIGN_CONTROL_ID
@@ -111,6 +119,10 @@ struct THEME_CONTROL
     // Used by tab controls
     THEME_TAB *pttTabs;
     DWORD cTabs;
+
+	// Used by combobox controls
+	THEME_ITEM *ptiItems;
+	DWORD cItems;
 
     // state variables that should be ignored
     HWND hWnd;

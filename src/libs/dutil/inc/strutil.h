@@ -13,6 +13,7 @@ extern "C" {
 #define ReleaseStrArray(rg, c) { if (rg) { StrArrayFree(rg, c); } }
 #define ReleaseNullStrArray(rg, c) { if (rg) { StrArrayFree(rg, c); c = 0; rg = NULL; } }
 #define ReleaseNullStrSecure(pwz) if (pwz) { StrSecureZeroFreeString(pwz); pwz = NULL; }
+#define ReleaseNullLoc(ploc) if (ploc) { LocFree(ploc); ploc = NULL; }
 
 #define DeclareConstBSTR(bstr_const, wz) const WCHAR bstr_const[] = { 0x00, 0x00, sizeof(wz)-sizeof(WCHAR), 0x00, wz }
 #define UseConstBSTR(bstr_const) const_cast<BSTR>(bstr_const + 4)
