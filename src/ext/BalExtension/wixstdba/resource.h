@@ -2,6 +2,12 @@
 
 #define IDC_STATIC                      -1
 
+// From afxres.h
+#define ID_APPLY_NOW                    0x3021
+#define ID_WIZBACK                      0x3023
+#define ID_WIZNEXT                      0x3024
+#define ID_WIZFINISH                    0x3025
+
 
 // Next default values for new objects
 // 

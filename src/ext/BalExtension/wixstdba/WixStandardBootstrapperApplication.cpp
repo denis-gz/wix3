@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information.
 
 #include "precomp.h"
+#include "resource.h"
 
 static const LPCWSTR WIXBUNDLE_VARIABLE_ELEVATED = L"WixBundleElevated";
 
@@ -1037,6 +1038,8 @@ private: // privates
         BOOL fRet = FALSE;
         MSG msg = { };
 
+        t_pBA = pThis;
+
         // Initialize COM and theme.
         hr = ::CoInitialize(NULL);
         BalExitOnFailure(hr, "Failed to initialize COM.");
@@ -1052,6 +1055,10 @@ private: // privates
         pThis->InitializeTaskbarButton();
         hr = pThis->CreateMainWindow();
         BalExitOnFailure(hr, "Failed to create main window.");
+
+        // Install localization hook.
+        pThis->m_hLocHook = ::SetWindowsHookExW(WH_CALLWNDPROCRET, LocHookProc, NULL, ::GetCurrentThreadId());
+        BalExitOnNullWithLastError(pThis->m_hLocHook, hr, "Failed to set localization hook.");
 
         if (FAILED(pThis->m_hrFinal))
         {
@@ -1092,6 +1099,13 @@ private: // privates
         }
 
     LExit:
+        // remove localization hook
+        if (pThis->m_hLocHook)
+        {
+            ::UnhookWindowsHookEx(pThis->m_hLocHook);
+            pThis->m_hLocHook = NULL;
+        }
+
         // destroy main window
         pThis->DestroyMainWindow();
 
@@ -1115,6 +1129,8 @@ private: // privates
         {
             ::CoUninitialize();
         }
+
+        t_pBA = NULL;
 
         return hr;
     }
@@ -3158,6 +3174,117 @@ private: // privates
         return;
     }
 
+    static LRESULT CALLBACK LocHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+    {
+        if (t_pBA && nCode >= 0)
+        {
+            PCWPRETSTRUCT pMsg = (PCWPRETSTRUCT) lParam;
+            if (pMsg->message == WM_INITDIALOG)
+            {
+                WCHAR className[10];
+                if (::GetClassNameW(pMsg->hwnd, className, _countof(className)) != 0 &&
+                    wcscmp(className, L"#32770") == 0)
+                {
+                    ::EnumChildWindows(pMsg->hwnd, LocEnumProc, lParam);
+                }
+            }
+        }
+        return ::CallNextHookEx(NULL, nCode, wParam, lParam);
+    }
+
+    static BOOL CALLBACK LocEnumProc(HWND hWnd, LPARAM)
+    {
+        WCHAR className[10];
+        if (::GetClassNameW(hWnd, className, _countof(className)) != 0 &&
+            wcscmp(className, L"Button") == 0)
+        {
+            LPWSTR text = NULL;
+            int ctrlId = ::GetDlgCtrlID(hWnd);
+            if (t_pBA->OnGetLocStdButtonText(ctrlId, &text))
+            {
+                ::SetWindowTextW(hWnd, text);
+                ReleaseStr(text);
+            }
+        }
+        return TRUE;
+    }
+
+    BOOL OnGetLocStdButtonText(int ctrlId, LPWSTR* ppwzText)
+    {
+        BOOL result = TRUE;
+        HRESULT hr = 0;
+        LOC_STRING* pLocString = NULL;
+
+        switch (ctrlId)
+        {
+        case IDOK:
+            hr = LocGetString(m_pWixLoc, L"#(loc.OkButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"OK", 0);
+            break;
+        case IDCANCEL:
+            hr = LocGetString(m_pWixLoc, L"#(loc.CancelButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"Cancel", 0);
+            break;
+        case IDABORT:
+            hr = LocGetString(m_pWixLoc, L"#(loc.AbortButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Abort", 0);
+            break;
+        case IDRETRY:
+            hr = LocGetString(m_pWixLoc, L"#(loc.RetryButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Retry", 0);
+            break;
+        case IDIGNORE:
+            hr = LocGetString(m_pWixLoc, L"#(loc.IgnoreButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Ignore", 0);
+            break;
+        case IDYES:
+            hr = LocGetString(m_pWixLoc, L"#(loc.YesButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Yes", 0);
+            break;
+        case IDNO:
+            hr = LocGetString(m_pWixLoc, L"#(loc.NoButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&No", 0);
+            break;
+        case IDCLOSE:
+            hr = LocGetString(m_pWixLoc, L"#(loc.CloseButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Close", 0);
+            break;
+        case IDHELP:
+            hr = LocGetString(m_pWixLoc, L"#(loc.HelpButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Help", 0);
+            break;
+        case IDTRYAGAIN:
+            hr = LocGetString(m_pWixLoc, L"#(loc.TryAgainButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Try Again", 0);
+            break;
+        case IDCONTINUE:
+            hr = LocGetString(m_pWixLoc, L"#(loc.ContinueButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Continue", 0);
+            break;
+        case ID_APPLY_NOW:
+            hr = LocGetString(m_pWixLoc, L"#(loc.ApplyButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Apply", 0);
+            break;
+        case ID_WIZBACK:
+            hr = LocGetString(m_pWixLoc, L"#(loc.BackButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"< &Back", 0);
+            break;
+        case ID_WIZNEXT:
+            hr = LocGetString(m_pWixLoc, L"#(loc.NextButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Next >", 0);
+            break;
+        case ID_WIZFINISH:
+            hr = LocGetString(m_pWixLoc, L"#(loc.FinishButton)", &pLocString);
+            StrAllocString(ppwzText, SUCCEEDED(hr) ? pLocString->wzText : L"&Finish", 0);
+            break;
+        default:
+            result = FALSE;
+            break;
+        }
+
+        return result;
+    }
+
 
     //
     // OnClickFilesInUseOkButton
@@ -3609,6 +3736,7 @@ public:
         m_hUiThread = NULL;
         m_fRegistered = FALSE;
         m_hWnd = NULL;
+        m_hLocHook = NULL;
 
         m_state = WIXSTDBA_STATE_INITIALIZING;
         m_hrFinal = hrHostInitialization;
@@ -3690,6 +3818,8 @@ public:
     }
 
 private:
+    static thread_local CWixStandardBootstrapperApplication* t_pBA;
+
     HMODULE m_hModule;
     BOOTSTRAPPER_COMMAND m_command;
     IBootstrapperEngine* m_pEngine;
@@ -3710,6 +3840,7 @@ private:
     HANDLE m_hUiThread;
     BOOL m_fRegistered;
     HWND m_hWnd;
+    HHOOK m_hLocHook;
 
     WIXSTDBA_STATE m_state;
     WIXSTDBA_STATE m_stateBeforeOptions;
@@ -3759,6 +3890,9 @@ private:
 
     BOOL m_fUseUILanguages;
 };
+
+
+thread_local CWixStandardBootstrapperApplication* CWixStandardBootstrapperApplication::t_pBA = NULL;
 
 
 //
