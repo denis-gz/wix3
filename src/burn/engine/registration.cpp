@@ -413,22 +413,23 @@ extern "C" HRESULT RegistrationSetVariables(
     HRESULT hr = S_OK;
     LPWSTR sczBundleManufacturer = NULL;
     LPWSTR sczBundleName = NULL;
-    HKEY hkRegistration = NULL;
-    DWORD dwLangId = 0;
 
     if (pRegistration->fInstalled)
     {
         hr = VariableSetNumeric(pVariables, BURN_BUNDLE_INSTALLED, 1, TRUE);
         ExitOnFailure(hr, "Failed to set the bundle installed built-in variable.");
 
+        DWORD dwLangId = 0;
+        HKEY hkRegistration = NULL;
         hr = RegOpen(pRegistration->hkRoot, pRegistration->sczRegistrationKey, KEY_QUERY_VALUE, &hkRegistration);
         if (SUCCEEDED(hr))
         {
             hr = RegReadNumber(hkRegistration, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, &dwLangId);
+            ReleaseRegKey(hkRegistration);
         }
         if (SUCCEEDED(hr))
         {
-            hr = VariableSetNumeric(pVariables, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, dwLangId, TRUE);
+            hr = VariableSetNumeric(pVariables, BURN_BUNDLE_LANGUAGE, dwLangId, FALSE);
             ExitOnFailure(hr, "Failed to set the bundle language variable.");
         }
     }
@@ -458,7 +459,6 @@ extern "C" HRESULT RegistrationSetVariables(
 LExit:
     ReleaseStr(sczBundleManufacturer);
     ReleaseStr(sczBundleName);
-    ReleaseRegKey(hkRegistration);
 
     return hr;
 }
@@ -654,8 +654,8 @@ extern "C" HRESULT RegistrationSessionBegin(
             static_cast<WORD>(pRegistration->qwVersion >> 16), static_cast<WORD>(pRegistration->qwVersion));
         ExitOnFailure(hr, "Failed to write %ls value.", BURN_REGISTRATION_REGISTRY_BUNDLE_VERSION);
 
-        hr = VariableGetNumeric(pVariables, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, &llLangId);
-        if (llLangId)
+        if (SUCCEEDED(VariableGetNumeric(pVariables, BURN_BUNDLE_LANGUAGE, &llLangId))
+            && llLangId)
         {
             hr = RegWriteNumber(hkRegistration, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, static_cast<DWORD>(llLangId));
             ExitOnFailure(hr, "Failed to write %ls value.", BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE);
