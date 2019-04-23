@@ -19,9 +19,8 @@ static const DWORD WIXSTDBA_ACQUIRE_PERCENTAGE = 30;
 static const LPCWSTR WIXSTDBA_VARIABLE_BUNDLE_FILE_VERSION = L"WixBundleFileVersion";
 static const LPCWSTR WIXSTDBA_VARIABLE_LANGUAGE_ID = L"WixStdBALanguageId";
 
-// Copied from burn/engine/*.h
-static const LPCWSTR BURN_BUNDLE_INSTALLED = L"WixBundleInstalled";
-static const LPCWSTR BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE = L"BundleLanguage";
+// Copied from burn/engine/core.h
+static const LPCWSTR BURN_BUNDLE_LANGUAGE = L"WixBundleLanguage";
 
 enum WIXSTDBA_STATE
 {
@@ -343,14 +342,18 @@ public: // IBootstrapperApplication
         __in HRESULT hrStatus
         )
     {
-        if (SUCCEEDED(hrStatus) && m_pBAFunction)
-        {
-            BalLog(BOOTSTRAPPER_LOG_LEVEL_STANDARD, "Running detect complete BA function");
-            m_pBAFunction->OnDetectComplete();
-        }
+        DWORD dwLangId = 0;
 
         if (SUCCEEDED(hrStatus))
         {
+            dwLangId = hrStatus;
+
+            if (m_pBAFunction)
+            {
+                BalLog(BOOTSTRAPPER_LOG_LEVEL_STANDARD, "Running detect complete BA function");
+                m_pBAFunction->OnDetectComplete();
+            }
+
             hrStatus = EvaluateConditions();
 
             if (m_fPrereq)
@@ -370,6 +373,11 @@ public: // IBootstrapperApplication
         }
 
         SetState(WIXSTDBA_STATE_DETECTED, hrStatus);
+
+        if (dwLangId)
+        {
+            ::PostMessageW(m_hWnd, WM_WIXSTDBA_CHANGE_LANGUAGE, 0, dwLangId);
+        }
 
         if (BOOTSTRAPPER_ACTION_CACHE == m_plannedAction)
         {
@@ -1147,8 +1155,6 @@ private: // privates
     {
         HRESULT hr = S_OK;
         IXMLDOMDocument *pixdManifest = NULL;
-        LONGLONG llLangId = 0;
-        LONGLONG llInstalled = 0;
 
         hr = BalManifestLoad(m_hModule, &pixdManifest);
         BalExitOnFailure(hr, "Failed to load bootstrapper application manifest.");
@@ -1165,16 +1171,9 @@ private: // privates
         // Command line options have the highest priority
         if (!m_sczLanguage || !m_sczLanguage[0])
         {
-            hr = m_pEngine->GetVariableNumeric(BURN_BUNDLE_INSTALLED, &llInstalled);
-            if (!llInstalled)
-            {
-                hr = E_NOTFOUND;
-            }
-            if (SUCCEEDED(hr))
-            {
-                hr = m_pEngine->GetVariableNumeric(BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, &llLangId);
-            }
-            if (SUCCEEDED(hr))
+            LONGLONG llLangId = 0;
+            if (SUCCEEDED(m_pEngine->GetVariableNumeric(BURN_BUNDLE_LANGUAGE, &llLangId))
+                && llLangId)
             {
                 ReleaseNullStr(m_sczLanguage);
                 hr = StrAllocFormatted(&m_sczLanguage, L"%u", static_cast<DWORD>(llLangId));
@@ -1330,8 +1329,8 @@ private: // privates
             hr = m_pEngine->SetVariableNumeric(WIXSTDBA_VARIABLE_LANGUAGE_ID, m_pWixLoc->dwLangId);
             BalExitOnFailure(hr, "Failed to set WixStdBALanguageId variable.");
 
-            hr = m_pEngine->SetVariableNumeric(BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, m_pWixLoc->dwLangId);
-            BalExitOnFailure(hr, "Failed to set BundleLanguage variable.");
+            hr = m_pEngine->SetVariableNumeric(BURN_BUNDLE_LANGUAGE, m_pWixLoc->dwLangId);
+            BalExitOnFailure(hr, "Failed to set WixBundleLanguage variable.");
         }
 
         // Load ConfirmCancelMessage.

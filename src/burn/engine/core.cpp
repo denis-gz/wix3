@@ -226,6 +226,8 @@ extern "C" HRESULT CoreDetect(
     BOOL fActivated = FALSE;
     BURN_PACKAGE* pPackage = NULL;
     HRESULT hrFirstPackageFailure = S_OK;
+    HKEY hkRegistration = NULL;
+    DWORD dwLangId = 0;
 
     LogId(REPORT_STANDARD, MSG_DETECT_BEGIN, pEngineState->packages.cPackages);
 
@@ -248,6 +250,43 @@ extern "C" HRESULT CoreDetect(
     // Load all of the related bundles.
     hr = RegistrationDetectRelatedBundles(&pEngineState->registration);
     ExitOnFailure(hr, "Failed to detect related bundles.");
+
+    // Detect existing bundle setup language, if available.
+    if (pEngineState->registration.fInstalled)
+    {
+        hr = RegOpen(pEngineState->registration.hkRoot, pEngineState->registration.sczRegistrationKey, KEY_QUERY_VALUE, &hkRegistration);
+        ExitOnFailure(hr, "Failed to open installed bundle registry key.");
+    }
+    else
+    {
+        BURN_RELATED_BUNDLE* pUpgradeBundle = NULL;
+        for (DWORD iBundle = 0; iBundle < pEngineState->registration.relatedBundles.cRelatedBundles; ++iBundle)
+        {
+            BURN_RELATED_BUNDLE* pBundle = pEngineState->registration.relatedBundles.rgRelatedBundles + iBundle;
+            if (pBundle->relationType == BOOTSTRAPPER_RELATION_UPGRADE)
+            {
+                pUpgradeBundle = pBundle;
+                break;
+            }
+        }
+        if (pUpgradeBundle)
+        {
+            HKEY hkRoot = pUpgradeBundle->package.fPerMachine ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
+            LPWSTR sczRegistrationKey = NULL;
+            hr = StrAllocFormatted(&sczRegistrationKey, L"%s\\%s", BURN_REGISTRATION_REGISTRY_UNINSTALL_KEY, pUpgradeBundle->package.sczId);
+            ExitOnFailure(hr, "Failed to build installed bundle registry key path.");
+            hr = RegOpen(hkRoot, sczRegistrationKey, KEY_QUERY_VALUE, &hkRegistration);
+            ReleaseStr(sczRegistrationKey);
+        }
+    }
+    if (hkRegistration)
+    {
+        if (SUCCEEDED(RegReadNumber(hkRegistration, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, &dwLangId)))
+        {
+            VariableSetNumeric(&pEngineState->variables, BURN_BUNDLE_LANGUAGE, dwLangId, FALSE);
+        }
+        ReleaseRegKey(hkRegistration);
+    }
 
     hr = DependencyDetectProviderKeyBundleId(&pEngineState->registration);
     if (SUCCEEDED(hr))
@@ -377,7 +416,7 @@ LExit:
         UserExperienceDeactivateEngine(&pEngineState->userExperience);
     }
 
-    pEngineState->userExperience.pUserExperience->OnDetectComplete(hr);
+    pEngineState->userExperience.pUserExperience->OnDetectComplete(SUCCEEDED(hr) ? dwLangId : hr);
     pEngineState->userExperience.hwndDetect = NULL;
 
     LogId(REPORT_STANDARD, MSG_DETECT_COMPLETE, hr);
