@@ -794,10 +794,21 @@ static HRESULT RegistrySearchExists(
             fExists = TRUE;
             break;
         case ERROR_FILE_NOT_FOUND:
+        {
+            LPCWSTR sczRootName;
+            switch (reinterpret_cast<ULONG_PTR>(pSearch->RegistrySearch.hRoot))
+            {
+                case HKEY_LOCAL_MACHINE: sczRootName = L"HKLM"; break;
+                case HKEY_CURRENT_USER:  sczRootName = L"HKCU"; break;
+                case HKEY_CLASSES_ROOT:  sczRootName = L"HKCR"; break;
+                case HKEY_USERS:         sczRootName = L"HKU";  break;
+                default:                 sczRootName = L"";     break;
+            }
             // What if there is a hidden variable in sczKey or sczValue?
-            LogStringLine(REPORT_STANDARD, "Registry value not found. Key = '%ls', Value = '%ls'", sczKey, sczValue);
+            LogStringLine(REPORT_STANDARD, "Registry value not found. Root = '%ls', Key = '%ls', Value = '%ls'", sczRootName, sczKey, sczValue);
             fExists = FALSE;
             break;
+        }
         default:
             ExitOnWin32Error(er, hr, "Failed to query registry key value.");
         }
@@ -870,8 +881,17 @@ static HRESULT RegistrySearchValue(
     er = ::RegQueryValueExW(hKey, sczValue, NULL, &dwType, NULL, &cbData);
     if (ERROR_FILE_NOT_FOUND == er)
     {
+        LPCWSTR sczRootName;
+        switch (reinterpret_cast<ULONG_PTR>(pSearch->RegistrySearch.hRoot))
+        {
+            case HKEY_LOCAL_MACHINE: sczRootName = L"HKLM"; break;
+            case HKEY_CURRENT_USER:  sczRootName = L"HKCU"; break;
+            case HKEY_CLASSES_ROOT:  sczRootName = L"HKCR"; break;
+            case HKEY_USERS:         sczRootName = L"HKU";  break;
+            default:                 sczRootName = L"";     break;
+        }
         // What if there is a hidden variable in sczKey or sczValue?
-        LogStringLine(REPORT_STANDARD, "Registry value not found. Key = '%ls', Value = '%ls'", sczKey, sczValue);
+        LogStringLine(REPORT_STANDARD, "Registry value not found. Root = '%ls', Key = '%ls', Value = '%ls'", sczRootName, sczKey, sczValue);
         hr = VariableSetLiteralVariant(pVariables, pSearch->sczVariable, &value);
         ExitOnFailure(hr, "Failed to clear variable.");
         ExitFunction1(hr = S_OK);

@@ -418,20 +418,6 @@ extern "C" HRESULT RegistrationSetVariables(
     {
         hr = VariableSetNumeric(pVariables, BURN_BUNDLE_INSTALLED, 1, TRUE);
         ExitOnFailure(hr, "Failed to set the bundle installed built-in variable.");
-
-        DWORD dwLangId = 0;
-        HKEY hkRegistration = NULL;
-        hr = RegOpen(pRegistration->hkRoot, pRegistration->sczRegistrationKey, KEY_QUERY_VALUE, &hkRegistration);
-        if (SUCCEEDED(hr))
-        {
-            hr = RegReadNumber(hkRegistration, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, &dwLangId);
-            ReleaseRegKey(hkRegistration);
-        }
-        if (SUCCEEDED(hr))
-        {
-            hr = VariableSetNumeric(pVariables, BURN_BUNDLE_LANGUAGE, dwLangId, FALSE);
-            ExitOnFailure(hr, "Failed to set the bundle language variable.");
-        }
     }
 
     // Ensure the registration bundle name is updated.
@@ -608,10 +594,8 @@ extern "C" HRESULT RegistrationSessionBegin(
 {
     HRESULT hr = S_OK;
     DWORD dwSize = 0;
-    LONGLONG llLangId = 0;
     HKEY hkRegistration = NULL;
     LPWSTR sczPublisher = NULL;
-    LPWSTR sczLangParam = NULL;
 
     LogId(REPORT_VERBOSE, MSG_SESSION_BEGIN, pRegistration->sczRegistrationKey, dwRegistrationOptions, LoggingBoolToString(pRegistration->fDisableResume));
 
@@ -653,21 +637,6 @@ extern "C" HRESULT RegistrationSessionBegin(
             static_cast<WORD>(pRegistration->qwVersion >> 48), static_cast<WORD>(pRegistration->qwVersion >> 32), 
             static_cast<WORD>(pRegistration->qwVersion >> 16), static_cast<WORD>(pRegistration->qwVersion));
         ExitOnFailure(hr, "Failed to write %ls value.", BURN_REGISTRATION_REGISTRY_BUNDLE_VERSION);
-
-        if (SUCCEEDED(VariableGetNumeric(pVariables, BURN_BUNDLE_LANGUAGE, &llLangId))
-            && llLangId)
-        {
-            hr = RegWriteNumber(hkRegistration, BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE, static_cast<DWORD>(llLangId));
-            ExitOnFailure(hr, "Failed to write %ls value.", BURN_REGISTRATION_REGISTRY_BUNDLE_LANGUAGE);
-
-            hr = StrAllocFormatted(&sczLangParam, L" /lang %u", static_cast<DWORD>(llLangId));
-            ExitOnFailure(hr, "Failed to format lang command line option.");
-        }
-        else
-        {
-            hr = StrAllocString(&sczLangParam, L"", 0);
-            ExitOnFailure(hr, "Failed to allocate string.");
-        }
 
         hr = RegWriteNumber(hkRegistration, REGISTRY_BUNDLE_VERSION_MAJOR, static_cast<WORD>(pRegistration->qwVersion >> 48));
         ExitOnFailure(hr, "Failed to write %ls value.", REGISTRY_BUNDLE_VERSION_MAJOR);
@@ -775,7 +744,7 @@ extern "C" HRESULT RegistrationSessionBegin(
         else if (BURN_REGISTRATION_MODIFY_DISABLE_BUTTON != pRegistration->modify) // if support modify (aka: did not disable anything)
         {
             // ModifyPath: [path to exe] /modify
-            hr = RegWriteStringFormatted(hkRegistration, REGISTRY_BUNDLE_MODIFY_PATH, L"\"%ls\"%ls /modify", pRegistration->sczCacheExecutablePath, sczLangParam);
+            hr = RegWriteStringFormatted(hkRegistration, REGISTRY_BUNDLE_MODIFY_PATH, L"\"%ls\" /modify", pRegistration->sczCacheExecutablePath);
             ExitOnFailure(hr, "Failed to write %ls value.", REGISTRY_BUNDLE_MODIFY_PATH);
 
             // NoElevateOnModify: 1
@@ -798,14 +767,14 @@ extern "C" HRESULT RegistrationSessionBegin(
         }
 
         // QuietUninstallString: [path to exe] /uninstall /quiet
-        hr = RegWriteStringFormatted(hkRegistration, REGISTRY_BUNDLE_QUIET_UNINSTALL_STRING, L"\"%ls\"%ls /uninstall /quiet", pRegistration->sczCacheExecutablePath, sczLangParam);
+        hr = RegWriteStringFormatted(hkRegistration, REGISTRY_BUNDLE_QUIET_UNINSTALL_STRING, L"\"%ls\" /uninstall /quiet", pRegistration->sczCacheExecutablePath);
         ExitOnFailure(hr, "Failed to write %ls value.", REGISTRY_BUNDLE_QUIET_UNINSTALL_STRING);
 
         // UninstallString, [path to exe]
         // If the modify button is to be disabled, we'll add "/modify" to the uninstall string because the button is "Uninstall/Change". Otherwise,
         // it's just the "Uninstall" button so we add "/uninstall" to make the program just go away.
         LPCWSTR wzUninstallParameters = (BURN_REGISTRATION_MODIFY_DISABLE_BUTTON == pRegistration->modify) ? L"/modify" : L" /uninstall";
-        hr = RegWriteStringFormatted(hkRegistration, REGISTRY_BUNDLE_UNINSTALL_STRING, L"\"%ls\"%ls %ls", pRegistration->sczCacheExecutablePath, sczLangParam, wzUninstallParameters);
+        hr = RegWriteStringFormatted(hkRegistration, REGISTRY_BUNDLE_UNINSTALL_STRING, L"\"%ls\" %ls", pRegistration->sczCacheExecutablePath, wzUninstallParameters);
         ExitOnFailure(hr, "Failed to write %ls value.", REGISTRY_BUNDLE_UNINSTALL_STRING);
 
         if (pRegistration->softwareTags.cSoftwareTags)
@@ -856,7 +825,6 @@ extern "C" HRESULT RegistrationSessionBegin(
 
 LExit:
     ReleaseStr(sczPublisher);
-    ReleaseStr(sczLangParam);
     ReleaseRegKey(hkRegistration);
 
     return hr;
