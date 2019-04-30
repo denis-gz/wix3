@@ -761,6 +761,16 @@ static HRESULT RegistrySearchExists(
     hr = VariableFormatString(pVariables, pSearch->RegistrySearch.sczKey, &sczKey, NULL);
     ExitOnFailure(hr, "Failed to format key string.");
 
+    LPCWSTR sczRootName;
+    switch (reinterpret_cast<ULONG_PTR>(pSearch->RegistrySearch.hRoot))
+    {
+        case HKEY_LOCAL_MACHINE: sczRootName = L"HKLM"; break;
+        case HKEY_CURRENT_USER:  sczRootName = L"HKCU"; break;
+        case HKEY_CLASSES_ROOT:  sczRootName = L"HKCR"; break;
+        case HKEY_USERS:         sczRootName = L"HKU";  break;
+        default:                 sczRootName = L"(?)";  break;
+    }
+
     // open key
     hr = RegOpen(pSearch->RegistrySearch.hRoot, sczKey, samDesired, &hKey);
     if (SUCCEEDED(hr))
@@ -770,14 +780,14 @@ static HRESULT RegistrySearchExists(
     else if (E_FILENOTFOUND == hr)
     {
         // What if there is a hidden variable in sczKey?
-        LogStringLine(REPORT_STANDARD, "Registry key not found. Key = '%ls'", sczKey);
+        LogStringLine(REPORT_STANDARD, "Registry key not found. Root = '%ls', Key = '%ls'", sczRootName, sczKey);
         fExists = FALSE;
         hr = S_OK;
     }
     else
     {
         // What if there is a hidden variable in sczKey?
-        ExitOnFailure1(hr, "Failed to open registry key. Key = '%ls'", sczKey);
+        ExitOnFailure1(hr, "Failed to open registry key. Root = '%ls', Key = '%ls'", sczRootName, sczKey);
     }
 
     if (fExists && pSearch->RegistrySearch.sczValue)
@@ -795,15 +805,6 @@ static HRESULT RegistrySearchExists(
             break;
         case ERROR_FILE_NOT_FOUND:
         {
-            LPCWSTR sczRootName;
-            switch (reinterpret_cast<ULONG_PTR>(pSearch->RegistrySearch.hRoot))
-            {
-                case HKEY_LOCAL_MACHINE: sczRootName = L"HKLM"; break;
-                case HKEY_CURRENT_USER:  sczRootName = L"HKCU"; break;
-                case HKEY_CLASSES_ROOT:  sczRootName = L"HKCR"; break;
-                case HKEY_USERS:         sczRootName = L"HKU";  break;
-                default:                 sczRootName = L"";     break;
-            }
             // What if there is a hidden variable in sczKey or sczValue?
             LogStringLine(REPORT_STANDARD, "Registry value not found. Root = '%ls', Key = '%ls', Value = '%ls'", sczRootName, sczKey, sczValue);
             fExists = FALSE;
@@ -865,12 +866,22 @@ static HRESULT RegistrySearchValue(
         ExitOnFailure(hr, "Failed to format value string.");
     }
 
+    LPCWSTR sczRootName;
+    switch (reinterpret_cast<ULONG_PTR>(pSearch->RegistrySearch.hRoot))
+    {
+        case HKEY_LOCAL_MACHINE: sczRootName = L"HKLM"; break;
+        case HKEY_CURRENT_USER:  sczRootName = L"HKCU"; break;
+        case HKEY_CLASSES_ROOT:  sczRootName = L"HKCR"; break;
+        case HKEY_USERS:         sczRootName = L"HKU";  break;
+        default:                 sczRootName = L"(?)";  break;
+    }
+
     // open key
     hr = RegOpen(pSearch->RegistrySearch.hRoot, sczKey, samDesired, &hKey);
     if (E_FILENOTFOUND == hr)
     {
         // What if there is a hidden variable in sczKey?
-        LogStringLine(REPORT_STANDARD, "Registry key not found. Key = '%ls'", sczKey);
+        LogStringLine(REPORT_STANDARD, "Registry key not found. Root = '%ls', Key = '%ls'", sczRootName, sczKey);
         hr = VariableSetLiteralVariant(pVariables, pSearch->sczVariable, &value);
         ExitOnFailure(hr, "Failed to clear variable.");
         ExitFunction1(hr = S_OK);
@@ -881,15 +892,6 @@ static HRESULT RegistrySearchValue(
     er = ::RegQueryValueExW(hKey, sczValue, NULL, &dwType, NULL, &cbData);
     if (ERROR_FILE_NOT_FOUND == er)
     {
-        LPCWSTR sczRootName;
-        switch (reinterpret_cast<ULONG_PTR>(pSearch->RegistrySearch.hRoot))
-        {
-            case HKEY_LOCAL_MACHINE: sczRootName = L"HKLM"; break;
-            case HKEY_CURRENT_USER:  sczRootName = L"HKCU"; break;
-            case HKEY_CLASSES_ROOT:  sczRootName = L"HKCR"; break;
-            case HKEY_USERS:         sczRootName = L"HKU";  break;
-            default:                 sczRootName = L"";     break;
-        }
         // What if there is a hidden variable in sczKey or sczValue?
         LogStringLine(REPORT_STANDARD, "Registry value not found. Root = '%ls', Key = '%ls', Value = '%ls'", sczRootName, sczKey, sczValue);
         hr = VariableSetLiteralVariant(pVariables, pSearch->sczVariable, &value);
