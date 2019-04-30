@@ -139,9 +139,9 @@ extern "C" HRESULT DAPI LocProbeForFileEx(
         ExitFunction();
     }
 
-    if (MAKELANGID(langid & 0x3FF, SUBLANG_DEFAULT) != langid) 
+    if (MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL) != langid)
     { 
-        langid = MAKELANGID(langid & 0x3FF, SUBLANG_DEFAULT); 
+        langid = MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL);
         
         hr = StrAllocFormatted(&sczLangIdFile, L"%u\\%ls", langid, wzLocFileName); 
         ExitOnFailure(hr, "Failed to format user langid (default sublang).");
@@ -168,9 +168,9 @@ extern "C" HRESULT DAPI LocProbeForFileEx(
         ExitFunction();
     }
 
-    if (MAKELANGID(langid & 0x3FF, SUBLANG_DEFAULT) != langid) 
+    if (MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL) != langid)
     { 
-        langid = MAKELANGID(langid & 0x3FF, SUBLANG_DEFAULT); 
+        langid = MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL);
         
         hr = StrAllocFormatted(&sczLangIdFile, L"%u\\%ls", langid, wzLocFileName); 
         ExitOnFailure(hr, "Failed to format user langid (default sublang).");
