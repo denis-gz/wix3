@@ -93,7 +93,23 @@ extern "C" HRESULT CoreInitialize(
     ExitOnFailure(hr, "Failed to load manifest.");
 
     // Parse command line.
-    hr = ParseCommandLine(pEngineState->argc, pEngineState->argv, &pEngineState->command, &pEngineState->companionConnection, &pEngineState->embeddedConnection, &pEngineState->variables, &pEngineState->mode, &pEngineState->automaticUpdates, &pEngineState->fDisableSystemRestore, &sczSourceProcessPath, &sczOriginalSource, &pEngineState->fDisableUnelevate, &pEngineState->log.dwAttributes, &pEngineState->log.sczPath, &pEngineState->registration.sczActiveParent, &pEngineState->sczIgnoreDependencies, &pEngineState->registration.sczAncestors, &sczSanitizedCommandLine);
+    hr = ParseCommandLine(pEngineState->argc, pEngineState->argv,
+        &pEngineState->command,
+        &pEngineState->companionConnection,
+        &pEngineState->embeddedConnection,
+        &pEngineState->variables,
+        &pEngineState->mode,
+        &pEngineState->automaticUpdates,
+        &pEngineState->fDisableSystemRestore,
+        &sczSourceProcessPath,
+        &sczOriginalSource,
+        &pEngineState->fDisableUnelevate,
+        &pEngineState->log.dwAttributes,
+        &pEngineState->log.sczPath,
+        &pEngineState->registration.sczActiveParent,
+        &pEngineState->sczIgnoreDependencies,
+        &pEngineState->registration.sczAncestors,
+        &sczSanitizedCommandLine);
     ExitOnFailure(hr, "Failed to parse command line.");
 
     LogId(REPORT_STANDARD, MSG_BURN_COMMAND_LINE, sczSanitizedCommandLine ? sczSanitizedCommandLine : L"");
