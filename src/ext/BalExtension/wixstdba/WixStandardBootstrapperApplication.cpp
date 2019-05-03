@@ -339,8 +339,6 @@ public: // IBootstrapperApplication
         __in HRESULT hrStatus
         )
     {
-        LONGLONG llLangId = 0;
-
         if (SUCCEEDED(hrStatus))
         {
             if (m_pBAFunction)
@@ -369,10 +367,14 @@ public: // IBootstrapperApplication
 
         SetState(WIXSTDBA_STATE_DETECTED, hrStatus);
 
-        // Apply value from registry search
-        if (SUCCEEDED(m_pEngine->GetVariableNumeric(WIXSTDBA_VARIABLE_LANGUAGE_ID, &llLangId)) && llLangId)
+        if (BOOTSTRAPPER_DISPLAY_NONE < m_command.display)
         {
-            ::PostMessageW(m_hWnd, WM_WIXSTDBA_CHANGE_LANGUAGE, 0, static_cast<DWORD>(llLangId));
+            LONGLONG llLangId = 0;
+            if (SUCCEEDED(m_pEngine->GetVariableNumeric(WIXSTDBA_VARIABLE_LANGUAGE_ID, &llLangId)) && llLangId)
+            {
+                // Apply value from registry search
+                ::PostMessageW(m_hWnd, WM_WIXSTDBA_CHANGE_LANGUAGE, 0, static_cast<DWORD>(llLangId));
+            }
         }
 
         if (BOOTSTRAPPER_ACTION_CACHE == m_plannedAction)
