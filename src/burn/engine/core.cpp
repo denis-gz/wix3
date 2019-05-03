@@ -114,6 +114,16 @@ extern "C" HRESULT CoreInitialize(
 
     LogId(REPORT_STANDARD, MSG_BURN_COMMAND_LINE, sczSanitizedCommandLine ? sczSanitizedCommandLine : L"");
 
+#ifndef NDEBUG
+    while (!::IsDebuggerPresent()) {
+        ::Beep(400, 100);
+        ::Sleep(1000);
+        if (::GetAsyncKeyState(VK_CAPITAL))
+            break;
+    }
+    ::Beep(400, 600);
+#endif
+
     // Retain whether bundle was initially run elevated.
     ProcElevated(::GetCurrentProcess(), &fElevated);
 
