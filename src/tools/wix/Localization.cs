@@ -485,16 +485,16 @@ namespace Microsoft.Tools.WindowsInstallerXml
                             control = Common.GetAttributeIdentifierValue(sourceLineNumbers, attrib, null);
                             break;
                         case "X":
-                            x = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, 0, short.MaxValue, null);
+                            x = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, short.MinValue, short.MaxValue, null);
                             break;
                         case "Y":
-                            y = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, 0, short.MaxValue, null);
+                            y = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, short.MinValue, short.MaxValue, null);
                             break;
                         case "Width":
-                            width = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, 0, short.MaxValue, null);
+                            width = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, short.MinValue, short.MaxValue, null);
                             break;
                         case "Height":
-                            height = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, 0, short.MaxValue, null);
+                            height = Common.GetAttributeIntegerValue(sourceLineNumbers, attrib, short.MinValue, short.MaxValue, null);
                             break;
                         case "RightToLeft":
                             if (YesNoType.Yes == Common.GetAttributeYesNoValue(sourceLineNumbers, attrib, null))
