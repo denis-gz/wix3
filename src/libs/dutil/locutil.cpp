@@ -116,12 +116,30 @@ extern "C" HRESULT DAPI LocProbeForFileEx(
             hr = StrAllocFormatted(&sczLangIdFile, L"%u\\%ls", langid, wzLocFileName); 
             ExitOnFailure(hr, "Failed to format user preferred langid.");
 
+            // Check specific language path first
             hr = PathConcat(wzBasePath, sczLangIdFile, &sczProbePath); 
             ExitOnFailure(hr, "Failed to concat user preferred langid file name to base path.");
 
             if (FileExistsEx(sczProbePath, NULL)) 
             { 
                 ExitFunction(); 
+            }
+
+            // Check neutral language as fallback
+            if (langid != MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL))
+            {
+                langid = MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL);
+
+                hr = StrAllocFormatted(&sczLangIdFile, L"%u\\%ls", langid, wzLocFileName);
+                ExitOnFailure(hr, "Failed to format user preferred langid.");
+
+                hr = PathConcat(wzBasePath, sczLangIdFile, &sczProbePath);
+                ExitOnFailure(hr, "Failed to concat user preferred langid file name to base path.");
+
+                if (FileExistsEx(sczProbePath, NULL))
+                {
+                    ExitFunction();
+                }
             }
         }
     }
@@ -139,10 +157,10 @@ extern "C" HRESULT DAPI LocProbeForFileEx(
         ExitFunction();
     }
 
-    if (MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL) != langid)
+    if (langid != MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL))
     { 
         langid = MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL);
-        
+
         hr = StrAllocFormatted(&sczLangIdFile, L"%u\\%ls", langid, wzLocFileName); 
         ExitOnFailure(hr, "Failed to format user langid (default sublang).");
 
@@ -168,10 +186,10 @@ extern "C" HRESULT DAPI LocProbeForFileEx(
         ExitFunction();
     }
 
-    if (MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL) != langid)
+    if (langid != MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL))
     { 
         langid = MAKELANGID(PRIMARYLANGID(langid), SUBLANG_NEUTRAL);
-        
+
         hr = StrAllocFormatted(&sczLangIdFile, L"%u\\%ls", langid, wzLocFileName); 
         ExitOnFailure(hr, "Failed to format user langid (default sublang).");
 
